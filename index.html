@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font: 13px Helvetica, Arial; }
+        .login { width: 200px; position: absolute; top:40%; left: calc(50% - 100px) }
+        .login>input:first-child { padding: 5px; margin-bottom: 5px}
+        .login>input:last-child { padding: 3px 10px; border-radius: 7px }
+        .status-on {padding: 3px; border-radius: 50%; border: 1px solid green; background: green; display: inline-block; margin-right: 3px }
+        form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+        form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+        form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+        #messages { list-style-type: none; margin: 0; padding: 0; }
+        #messages li { padding: 5px 10px; }
+        #messages li:nth-child(odd) { background: #eee; }
+        #user-tab {position: absolute; left:3%; top:90%}
+        .users:hover{ cursor: pointer; }
+
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+        $(function () {
+            var socket = io();            
+            $('.chat-body').hide();
+            $('.login>input:last-child').click(function(){
+                var name = $('.login>input:first-child').val();
+                if(!name){
+                    alert('Eneter valid name');
+                    return
+                }
+                socket.emit('join',name);
+                socket.on('update-user-list',function(user,id){
+                    $('#user-tab').append().text(user+' is joined');
+                    setTimeout(function(){$('#user-tab').empty()},3000);
+                    $('.users').append('<div data-client-id = '+id+'><div class="status-on"></div>'+user+'</div>')
+                })
+                $('.login').detach();
+                socket.on('user-list',function(obj){
+                    for (var item in obj){
+                        $('.users').append('<div data-client-id = '+item+'><div class="status-on"></div>'+obj[item]+'</div>')
+                    }
+                })
+                $('.chat-body').show();
+            })
+            
+            $('#m').keydown(function(){
+                socket.emit('user-tab');
+            })
+
+             $('#m').keyup(function(){
+                socket.emit('rem-user-tab');
+            })
+            
+            socket.on('user-tab',function(user){
+                $('#user-tab').html('<p><i>'+user+' is typing a massage</i></p>');
+            })
+
+            socket.on('rem-user-tab',function(user){
+                $('#user-tab').empty();
+            })
+
+            var id = '';
+
+            $('.users').click(function(e){
+                if(!$(e.target).data('client-id')){
+                    return
+                }
+               id = $(e.target).data('client-id');
+               alert('User was chosen');
+            })
+            
+            $('form').submit(function(){
+                if(id){
+                    socket.emit('chat message', $('#m').val(), id);
+                    $('#m').val('');
+                    id = '';
+                }else{
+                    socket.emit('chat message', $('#m').val());
+                    $('#m').val('');
+                }
+                return false;
+            })
+
+            socket.on('chat message', function(msg,user){
+                $('#messages').append($('<li>').html('<i>'+user+': </i>'+msg));
+            });
+
+            socket.on('delete-user-id',function(id,user){
+                $('#user-tab').append().text(user+' is joined');
+                    setTimeout(function(){$('#user-tab').empty()},3000);
+                $('.users>div[data-client-id = '+id+']').remove();
+            })       
+        });
+    </script>
+  </head>
+  <body>
+    <div class="login">
+        <input type="text" autocomplete="false" autofocus placeholder="Your nick">
+        <input type="button" value="Join"> 
+    </div>
+
+    <div class="chat-body">
+        <div class="users"></div>
+        <ul id="messages"></ul>
+        <div id="user-tab"></div>
+        <form action="">
+            <input id="m" autocomplete="off" autofocus /><button>Send</button>
+        </form>
+    </div>
+  </body>
+</html>
